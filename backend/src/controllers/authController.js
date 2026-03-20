@@ -1,11 +1,27 @@
 const User = require("../models/User");
-const { generateToken } = require("../utils/jwt");
+const jwt = require("jsonwebtoken");
+
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE || "7d",
+  });
+};
 
 const register = async (req, res) => {
   try {
+    console.log("Recebendo requisição de registro:", req.body);
+
     const { nome, email, senha, tipo, telefone, dataNascimento, endereco } =
       req.body;
 
+    if (!nome || !email || !senha || !telefone || !dataNascimento) {
+      return res.status(400).json({
+        success: false,
+        message: "Todos os campos são obrigatórios",
+      });
+    }
+
+    // Verificar se usuário já existe
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({
@@ -18,10 +34,10 @@ const register = async (req, res) => {
       nome,
       email,
       senha,
-      tipo,
+      tipo: tipo || "paciente",
       telefone,
-      dataNascimento,
-      endereco,
+      dataNascimento: new Date(dataNascimento),
+      endereco: endereco || {},
     });
 
     const token = generateToken(user._id);
@@ -38,6 +54,7 @@ const register = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Erro detalhado no registro:", error);
     res.status(500).json({
       success: false,
       message: "Erro ao cadastrar usuário",
@@ -48,6 +65,8 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
+    console.log("Tentativa de login:", req.body.email);
+
     const { email, senha } = req.body;
 
     if (!email || !senha) {
@@ -58,6 +77,7 @@ const login = async (req, res) => {
     }
 
     const user = await User.findOne({ email }).select("+senha");
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -66,6 +86,7 @@ const login = async (req, res) => {
     }
 
     const senhaValida = await user.compareSenha(senha);
+
     if (!senhaValida) {
       return res.status(401).json({
         success: false,
@@ -87,6 +108,7 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Erro no login:", error);
     res.status(500).json({
       success: false,
       message: "Erro ao fazer login",
@@ -98,13 +120,20 @@ const login = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuário não encontrado",
+      });
+    }
     res.json({
-      succes: true,
+      success: true,
       data: user,
     });
   } catch (error) {
+    console.error("Erro ao buscar usuário:", error);
     res.status(500).json({
-      succes: false,
+      success: false,
       message: "Erro ao buscar usuário",
     });
   }

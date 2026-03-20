@@ -4,23 +4,19 @@ const bcrypt = require("bcryptjs");
 const userSchema = new mongoose.Schema({
   nome: {
     type: String,
-    required: [true, "Nome é obrigatório"],
+    required: true,
     trim: true,
-    minlength: [3, "Nome deve ter no mínimo 3 caracteres"],
   },
   email: {
     type: String,
-    required: [true, "Email é obrigatório"],
+    required: true,
     unique: true,
     lowercase: true,
     trim: true,
-    //esse match eu pesquisei para ter uma validação de email melhor!
-    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, "Email inválido"],
   },
   senha: {
     type: String,
-    required: [true, "Senha é obrigatória"],
-    minlength: [6, "Senha deve ter no mínimo 6 caracteres"],
+    required: true,
     select: false,
   },
   tipo: {
@@ -30,11 +26,11 @@ const userSchema = new mongoose.Schema({
   },
   telefone: {
     type: String,
-    required: [true, "Telefone é obrigatório"],
+    required: true,
   },
   dataNascimento: {
     type: Date,
-    required: [true, "Data de nascimento é obrigatória"],
+    required: true,
   },
   endereco: {
     cep: String,
@@ -51,19 +47,33 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("senha")) return next();
+// Middleware para criptografar senha antes de salvar
+userSchema.pre("save", function (next) {
+  const user = this;
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.senha = await bcrypt.hash(this.senha, salt);
-    next();
-  } catch (error) {
-    next(ErrorEvent);
-  }
+  if (!user.isModified("senha")) return next();
+
+  bcrypt.genSalt(10, function (err, salt) {
+    if (err) return next(err);
+
+    bcrypt.hash(user.senha, salt, function (err, hash) {
+      if (err) return next(err);
+      user.senha = hash;
+      next();
+    });
+  });
 });
 
-userSchema.methods.compareSenha = async function (senhaDigitada) {
+// Método para comparar senhas
+userSchema.methods.compareSenha = function (senhaDigitada, callback) {
+  bcrypt.compare(senhaDigitada, this.senha, function (err, isMatch) {
+    if (err) return callback(err);
+    callback(null, isMatch);
+  });
+};
+
+// Versão com Promise para usar com async/await
+userSchema.methods.compareSenhaAsync = async function (senhaDigitada) {
   return await bcrypt.compare(senhaDigitada, this.senha);
 };
 
