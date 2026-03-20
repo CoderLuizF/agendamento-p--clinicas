@@ -52,11 +52,33 @@ export default {
     };
 
     const cancelar = async (id) => {
-      if (confirm("Cancelar consulta?")) {
-        await axios.delete(`http://localhost:3000/api/appointments/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        carregar();
+      if (!confirm("Cancelar consulta?")) return;
+
+      try {
+        const token = localStorage.getItem("token");
+        console.log("Token:", token); // Verificar se o token existe
+
+        const response = await axios.delete(
+          `http://localhost:3000/api/appointments/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        console.log("Resposta:", response.data);
+
+        if (response.data.success) {
+          alert("Consulta cancelada com sucesso!");
+          carregar(); // Recarregar a lista
+        } else {
+          alert(response.data.message || "Erro ao cancelar");
+        }
+      } catch (error) {
+        console.error("Erro detalhado:", error.response?.data);
+        alert(error.response?.data?.message || "Erro ao cancelar consulta");
       }
     };
 

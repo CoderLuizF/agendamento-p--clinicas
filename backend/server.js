@@ -1,19 +1,17 @@
 const app = require("./src/app");
-const connectDB = require("./src/config/database");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
 const PORT = process.env.PORT || 3000;
 
-connectDB();
-
-process.on("uncaughtException", (error) => {
-  console.error("Erro não capturado:", error);
-});
-
-process.on("unhandledRejection", (error) => {
-  console.error("Promise rejeitada:", error);
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("✅ MongoDB conectado");
+    app.listen(PORT, () => {
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ Erro ao conectar MongoDB:", err.message);
+  });

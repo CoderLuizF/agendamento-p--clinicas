@@ -1,50 +1,40 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || "7d",
-  });
-};
-
+// Registrar
 const register = async (req, res) => {
   try {
-    console.log("Recebendo requisição de registro:", req.body);
-
     const { nome, email, senha, tipo, telefone, dataNascimento, endereco } =
       req.body;
 
-    if (!nome || !email || !senha || !telefone || !dataNascimento) {
-      return res.status(400).json({
-        success: false,
-        message: "Todos os campos são obrigatórios",
-      });
+    // Verificar se já existe
+    const existe = await User.findOne({ email });
+    if (existe) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email já cadastrado" });
     }
 
-    // Verificar se usuário já existe
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Email já cadastrado",
-      });
-    }
-
-    const user = await User.create({
+    // Criar usuário
+    const user = new User({
       nome,
       email,
       senha,
-      tipo: tipo || "paciente",
+      tipo,
       telefone,
-      dataNascimento: new Date(dataNascimento),
-      endereco: endereco || {},
+      dataNascimento,
+      endereco,
+    });
+    await user.save();
+
+    // Gerar token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
     });
 
-    const token = generateToken(user._id);
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: "Usuário cadastrado com sucesso",
       data: {
         _id: user._id,
         nome: user.nome,
@@ -54,51 +44,38 @@ const register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Erro detalhado no registro:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erro ao cadastrar usuário",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// Login
 const login = async (req, res) => {
   try {
-    console.log("Tentativa de login:", req.body.email);
-
     const { email, senha } = req.body;
 
-    if (!email || !senha) {
-      return res.status(400).json({
-        success: false,
-        message: "Email e senha são obrigatórios",
-      });
-    }
-
-    const user = await User.findOne({ email }).select("+senha");
-
+    // Buscar usuário
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Email ou senha inválidos",
-      });
+      return res
+        .status(401)
+        .json({ success: false, message: "Email ou senha inválidos" });
     }
 
-    const senhaValida = await user.compareSenha(senha);
-
+    // Verificar senha
+    const senhaValida = await bcrypt.compare(senha, user.senha);
     if (!senhaValida) {
-      return res.status(401).json({
-        success: false,
-        message: "Email ou senha inválidos",
-      });
+      return res
+        .status(401)
+        .json({ success: false, message: "Email ou senha inválidos" });
     }
 
-    const token = generateToken(user._id);
+    // Gerar token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     res.json({
       success: true,
-      message: "Login realizado com sucesso",
       data: {
         _id: user._id,
         nome: user.nome,
@@ -108,35 +85,8 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Erro no login:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erro ao fazer login",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-const getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuário não encontrado",
-      });
-    }
-    res.json({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    console.error("Erro ao buscar usuário:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erro ao buscar usuário",
-    });
-  }
-};
-
-module.exports = { register, login, getMe };
+module.exports = { register, login };
