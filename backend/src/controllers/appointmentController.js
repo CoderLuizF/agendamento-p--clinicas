@@ -110,7 +110,7 @@ const getAllAppointments = async (req, res) => {
   }
 };
 
-const updateAppointments = async (req, res) => {
+const updateAppointmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const appointment = await Appointment.findById(req.params.id);
@@ -182,6 +182,6 @@ module.exports = {
   createAppointment,
   getMyAppointments,
   getAllAppointments,
-  updateAppointments,
+  updateAppointmentStatus,
   cancelAppointment,
 };
